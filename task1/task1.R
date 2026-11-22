@@ -101,10 +101,6 @@ df_cant %>%
 cor_matrix <- cor(df_cant, method = "pearson")
 print(round(cor_matrix, 3))
 
-rcorr_res <- Hmisc::rcorr(as.matrix(df_cant), type = "pearson")
-print(round(rcorr_res$r, 3)) 
-print(round(rcorr_res$P, 4))
-
 corrplot(
   cor_matrix,
   method = "color",
@@ -163,7 +159,7 @@ ggplot(df_clean, aes(x = factor(gndr_fem))) +
   labs(title = "Distribuția după gen", x = "Gen (0 = Masculin, 1 = Feminin)", y = "Frecvență") +
   theme_minimal()
 
-#grafic mediu rezidenta
+#grafic mediu
 ggplot(df_clean, aes(x = factor(urban))) +
   geom_bar(fill = "steelblue", width = 0.5) +
   labs(title = "Distribuția după mediul de rezidență", x = "Mediu (0 = Rural, 1 = Urban)", y = "Frecvență") +
