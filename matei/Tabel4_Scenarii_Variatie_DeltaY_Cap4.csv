@@ -1,0 +1,8 @@
+"Scenariu_Variatie_X","Variabila","Delta_X","Coef_Beta","Variatie_Estimata_Y_min"
+"Cresterea varstei cu +10 ani","agea",10,-5.0036,-50.04
+"Cresterea autonomiei muncii cu +2 puncte (scala 0-10)","wkdcorga",2,6.9383,13.88
+"Cresterea duratei muncii cu +8 ore/saptamana","wkhtot",8,1.1718,9.37
+"Cresterea educatiei cu +4 ani (studii universitare)","eduyrs",4,3.6258,14.5
+"Cresterea satisfactiei fata de viata cu +2 puncte","stflife",2,-5.6689,-11.34
+"Cresterea timpului pentru stiri politice cu +30 min/zi","nwspol",30,0.0243,0.73
+"Schimbarea mediului din rural (0) in urban (1)","urban",1,13.7474,13.75
