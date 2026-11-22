@@ -1,18 +1,16 @@
 # ==============================================================================
-# CAPITOLUL 4: MODELARE ECONOMETRICA SI MACHINE LEARNING (100% CONFORM BAREM)
+# CAPITOLUL 4: MODELARE ECONOMETRICA SI MACHINE LEARNING
 # Set de date: ESS Round 11 (2023) - Germania (N = 1772)
 # ==============================================================================
 
 library(tidyverse)
 library(glmnet)
 library(lm.beta)
-library(broom)
 
 # ==============================================================================
 # PASUL 1: INCARCAREA SI VERIFICAREA SETULUI DE DATE CURATAT
 # ==============================================================================
-cale_fisier <- file.choose()
-df_clean <- read.csv(cale_fisier)
+df_clean <- read.csv("ESS11e04_2.csv")
 
 if ("cntry" %in% names(df_clean)) {
   df_clean <- df_clean %>%
@@ -49,6 +47,10 @@ model_step     <- step(model_full, direction = "both", trace = 1)
 print(summary(model_full))
 print(summary(model_step))
 
+# Verificarea convergentei celor trei metode secventiale
+cat("Convergenta Forward == Stepwise :", identical(sort(names(coef(model_forward))), sort(names(coef(model_step)))), "\n")
+cat("Convergenta Backward == Stepwise:", identical(sort(names(coef(model_backward))), sort(names(coef(model_step)))), "\n")
+
 # ==============================================================================
 # PASUL 3: MODELE DE REGULARIZARE / ML (RIDGE, LASSO, ELASTIC NET)
 # ==============================================================================
@@ -61,7 +63,7 @@ set.seed(123); cv_enet  <- cv.glmnet(X, y, alpha = 0.5, nfolds = 10)
 
 coef_ridge     <- as.matrix(coef(cv_ridge, s = "lambda.min"))
 coef_lasso     <- as.matrix(coef(cv_lasso, s = "lambda.min"))
-coef_lasso_1se <- as.matrix(coef(cv_lasso, s = "lambda.1se")) # Selectie stricta 1-SE
+coef_lasso_1se <- as.matrix(coef(cv_lasso, s = "lambda.1se"))
 coef_enet      <- as.matrix(coef(cv_enet,  s = "lambda.min"))
 
 png("grafice_validare_ML_Cap4.png", width = 1200, height = 450, res = 120)
@@ -72,7 +74,7 @@ plot(cv_enet);  title("Validare incrucisata: Elastic Net", line = 2.5)
 dev.off()
 
 # ==============================================================================
-# PASUL 4: TOATE CELE 7 CERINTE DE INTERPRETARE SI EXPORTUL TABELELOR
+# PASUL 4: INTERPRETAREA MODELULUI FINAL ALES SI EXPORTUL TABELELOR
 # ==============================================================================
 calc_rmse <- function(actual, pred) sqrt(mean((actual - pred)^2))
 calc_mae  <- function(actual, pred) mean(abs(actual - pred))
@@ -84,7 +86,7 @@ pred_ridge    <- as.numeric(predict(cv_ridge, newx = X, s = "lambda.min"))
 pred_lasso    <- as.numeric(predict(cv_lasso, newx = X, s = "lambda.min"))
 pred_enet     <- as.numeric(predict(cv_enet,  newx = X, s = "lambda.min"))
 
-# --- TABEL 1: Comparatie coeficienti (inclusiv Lasso lambda.1se) ---
+# --- TABEL 1: Comparatie coeficienti ---
 toti_termenii <- names(coef(model_full))
 coef_step_aliniat <- setNames(rep(0, length(toti_termenii)), toti_termenii)
 coef_step_aliniat[names(coef(model_step))] <- coef(model_step)
@@ -99,15 +101,17 @@ tabel1_coeficienti <- data.frame(
   ElasticNet_min = round(as.numeric(coef_enet), 4)
 )
 
-# --- TABEL 2: Indicatori de performanta ---
+# --- TABEL 2: Indicatori de performanta (inclusiv RMSE din 10-fold CV) ---
 tabel2_performanta <- data.frame(
   Model = c("1. OLS Complet", "2. Secvential (Stepwise)", "3. Regresie Ridge (alpha=0)",
             "4. Regresie Lasso (alpha=1)", "5. Elastic Net (alpha=0.5)"),
   Nr_Variabile_Active = c(length(coef(model_full)) - 1, length(coef(model_step)) - 1,
                           sum(coef_ridge[-1] != 0), sum(coef_lasso[-1] != 0), sum(coef_enet[-1] != 0)),
   Lambda_Optim = c("-", "-", round(cv_ridge$lambda.min, 4), round(cv_lasso$lambda.min, 4), round(cv_enet$lambda.min, 4)),
-  RMSE = round(c(calc_rmse(y, pred_ols_full), calc_rmse(y, pred_step), calc_rmse(y, pred_ridge),
-                 calc_rmse(y, pred_lasso), calc_rmse(y, pred_enet)), 3),
+  RMSE_Train = round(c(calc_rmse(y, pred_ols_full), calc_rmse(y, pred_step), calc_rmse(y, pred_ridge),
+                       calc_rmse(y, pred_lasso), calc_rmse(y, pred_enet)), 3),
+  RMSE_CV    = c("-", "-", round(sqrt(min(cv_ridge$cvm)), 3),
+                 round(sqrt(min(cv_lasso$cvm)), 3), round(sqrt(min(cv_enet$cvm)), 3)),
   MAE  = round(c(calc_mae(y, pred_ols_full), calc_mae(y, pred_step), calc_mae(y, pred_ridge),
                  calc_mae(y, pred_lasso), calc_mae(y, pred_enet)), 3),
   R2   = round(c(calc_r2(y, pred_ols_full), calc_r2(y, pred_step), calc_r2(y, pred_ridge),
@@ -116,7 +120,7 @@ tabel2_performanta <- data.frame(
   BIC  = c(round(BIC(model_full), 2), round(BIC(model_step), 2), "-", "-", "-")
 )
 
-# --- SUBPUNCTELE 3 & 4: Indicatorii de corelatie si Testarea globala (Fisher F) ---
+# --- Indicatorii de corelatie si Testarea globala (Fisher F) ---
 s_step   <- summary(model_step)
 R_mult   <- sqrt(s_step$r.squared)
 f_calc   <- as.numeric(s_step$fstatistic[1])
@@ -133,7 +137,7 @@ cat("Statistica F calculata              :", round(f_calc, 4), "(df1 =", df1, ",
 cat("Valoare critica F (alpha = 0.05)    :", round(f_critic, 4), "\n")
 cat("Valoare critica t (alpha = 0.05)    :", round(t_critic, 4), "\n")
 
-# --- SUBPUNCTELE 1, 2, 3 (part.) & 7: Modelul standardizat explicit + Corelatii partiale ---
+# --- Modelul standardizat explicit + Corelatii partiale (NA la Intercept) ---
 model_std_explicit <- lm(
   scale(netustm) ~ scale(agea) + scale(eduyrs) + scale(nwspol) + scale(wkhtot) +
     scale(wkdcorga) + scale(stflife) + scale(hinctnta) + scale(urban),
@@ -145,7 +149,7 @@ sum_step <- s_step$coefficients
 ic_step  <- confint(model_step, level = 0.95)
 beta_std <- coef(lm.beta(model_step))
 t_vals   <- sum_step[, "t value"]
-r_part   <- t_vals / sqrt(t_vals^2 + df2) # Coeficientul de corelatie partiala
+r_part   <- ifelse(rownames(sum_step) == "(Intercept)", NA, round(t_vals / sqrt(t_vals^2 + df2), 4))
 
 tabel3_model_final <- data.frame(
   Variabila         = rownames(sum_step),
@@ -156,13 +160,13 @@ tabel3_model_final <- data.frame(
   Statistica_t      = round(t_vals, 3),
   P_value           = round(sum_step[, "Pr(>|t|)"], 5),
   Semnificativ_5pct = ifelse(sum_step[, "Pr(>|t|)"] < 0.05, "Da", "Nu"),
-  Corelatie_Partial = round(r_part, 4),
+  Corelatie_Partial = r_part,
   Coef_Standardizat = round(as.numeric(beta_std), 4),
   Importanta_Abs    = round(abs(as.numeric(beta_std)), 4)
 ) %>%
   arrange(desc(Importanta_Abs))
 
-# --- SUBPUNCTUL 5: Determinarea valorii lui Y pentru profiluri date ---
+# --- Determinarea valorii lui Y pentru profiluri date ---
 profiluri <- data.frame(
   Profil   = c("Profil 1: Tanar urban, educat, autonomie mare", "Profil 2: Varstnic rural, educatie medie, autonomie mica"),
   agea     = c(28, 65),
@@ -179,7 +183,7 @@ pred_profiluri <- cbind(
   round(predict(model_step, newdata = profiluri, interval = "confidence"), 2)
 )
 
-# --- SUBPUNCTUL 6: Determinarea variatiei lui Y (Delta Y) la variatii ale lui X ---
+# --- Determinarea variatiei lui Y (Delta Y) la variatii ale lui X ---
 b <- coef(model_step)
 tabel4_variatii <- data.frame(
   Scenariu_Variatie_X = c(
@@ -203,7 +207,6 @@ print(tabel3_model_final)
 print(pred_profiluri)
 print(tabel4_variatii)
 
-# Export toate tabelele in CSV pentru Excel / Word
 write.csv(tabel1_coeficienti, "Tabel1_Comparatie_Coeficienti_Cap4.csv", row.names = FALSE)
 write.csv(tabel2_performanta, "Tabel2_Performanta_Modele_Cap4.csv", row.names = FALSE)
 write.csv(tabel3_model_final, "Tabel3_Model_Final_Standardizat_Cap4.csv", row.names = FALSE)
